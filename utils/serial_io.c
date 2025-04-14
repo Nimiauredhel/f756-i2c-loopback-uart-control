@@ -7,17 +7,17 @@
 
 #include "serial_io.h"
 
-#define UART_TX_HANDLE (huart3)
-#define UART_RX_HANDLE (huart3)
+#define UART_TX_HANDLE (huart2)
+#define UART_RX_HANDLE (huart2)
 
-char uart_buff[128] = {0};
-uint8_t i2c_tx_buff[64] = {0};
-uint8_t i2c_rx_buff[64] = {0};
+char uart_buff[512] = {0};
+uint8_t i2c_tx_buff[256] = {0};
+uint8_t i2c_rx_buff[256] = {0};
 
-SerialChannelState_t i2c4_master_state = 0;
-SerialChannelState_t i2c4_slave_state = 0;
-SerialChannelState_t i2c2_master_state = 0;
-SerialChannelState_t i2c2_slave_state = 0;
+volatile SerialChannelState_t i2c4_master_state = 0;
+volatile SerialChannelState_t i2c4_slave_state = 0;
+volatile SerialChannelState_t i2c2_master_state = 0;
+volatile SerialChannelState_t i2c2_slave_state = 0;
 
 void HAL_I2C_MasterTxCpltCallback (I2C_HandleTypeDef * hi2c)
 {
@@ -113,10 +113,12 @@ void serial_print_char(const char c)
 	HAL_UART_Transmit(&UART_TX_HANDLE, (uint8_t *)&c, 1, 0xFFFF);
 }
 
-uint8_t serial_scan(char *buffer, const uint8_t max_len)
+uint16_t serial_scan(char *buffer, const uint16_t max_len)
 {
+	static const uint8_t echo_line_length = 128;
+	char util_buff[16] = {0};
 	uint8_t inchar = 0;
-	uint8_t input_idx = 0;
+	uint16_t input_idx = 0;
 
 	bzero(buffer, max_len);
 
@@ -137,6 +139,17 @@ uint8_t serial_scan(char *buffer, const uint8_t max_len)
 					buffer[input_idx] = '\0';
 					serial_backspace_destructive(1);
 					input_idx--;
+					if (input_idx == echo_line_length - 1
+						|| input_idx % echo_line_length == echo_line_length - 1)
+					{
+						sprintf(util_buff, "\r\e[%uC%c \b", echo_line_length-1, 0x8D);
+						serial_print(util_buff, 0);
+						/*
+						serial_backspace_destructive(1);
+						serial_print("\e[8C", 0);
+						serial_print_char(0x8D);
+						*/
+					}
 				}
 				break;
 			case '\n':
@@ -151,6 +164,12 @@ uint8_t serial_scan(char *buffer, const uint8_t max_len)
 					serial_print_char(inchar);
 					inchar = 0;
 					input_idx++;
+					if (input_idx >= echo_line_length
+						&& input_idx % echo_line_length == 0)
+					{
+						serial_print_char('\r');
+						serial_print_char('\n');
+					}
 				}
 				HAL_Delay(1);
 				break;
@@ -159,7 +178,7 @@ uint8_t serial_scan(char *buffer, const uint8_t max_len)
 	}
 }
 
-void serial_i2c_send(I2C_HandleTypeDef *device, const uint8_t *msg, uint16_t len, uint16_t address)
+void serial_i2c_send(I2C_HandleTypeDef *device, uint8_t *msg, uint16_t len, uint16_t address)
 {
 	char buff[64];
 	HAL_I2C_StateTypeDef state;
@@ -171,7 +190,6 @@ void serial_i2c_send(I2C_HandleTypeDef *device, const uint8_t *msg, uint16_t len
 	}
 	sprintf(buff, "I2C Master Transmit IT result: %s", ret == 0 ? "good" : "bad");
 	serial_print_line(buff, strlen(buff));
-	HAL_Delay(1);
 }
 
 void serial_i2c_receive(I2C_HandleTypeDef *device, uint8_t *buffer, uint16_t max_len)
@@ -186,5 +204,4 @@ void serial_i2c_receive(I2C_HandleTypeDef *device, uint8_t *buffer, uint16_t max
 	}
 	sprintf(buff, "I2C Slave Receive IT result: %s", ret == 0 ? "good" : "bad");
 	serial_print_line(buff, strlen(buff));
-	HAL_Delay(1);
 }

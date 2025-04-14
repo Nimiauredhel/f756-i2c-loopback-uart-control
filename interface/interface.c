@@ -7,7 +7,7 @@
 
 #include "interface.h"
 
-static void rx_evaluate(const char *rx_msg)
+static void rx_evaluate(const char *rx_msg, uint16_t rx_msg_len)
 {
 	// * send msg to both I2c interfaces in turn -
 	// - awaiting loopback to happen -
@@ -91,9 +91,9 @@ static void rx_evaluate(const char *rx_msg)
 void interface_loop(void)
 {
 	HAL_Delay(1);
-	char input[32];
+	char input[256];
 
 	serial_print_line("Ready for user input.", 0);
-	serial_scan(input, 32);
-	rx_evaluate(input);
+	serial_scan(input, 256);
+	rx_evaluate(input, strlen(input));
 }

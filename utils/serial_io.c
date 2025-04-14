@@ -75,12 +75,10 @@ void HAL_I2C_ListenCpltCallback(I2C_HandleTypeDef * hi2c)
 
 void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c)
 {
-	uint8_t a = 100;
 }
 
 void HAL_I2C_AbortCpltCallback(I2C_HandleTypeDef *hi2c)
 {
-	uint8_t a = 100;
 }
 
 static void serial_backspace_destructive(uint16_t count)
@@ -167,7 +165,7 @@ void serial_i2c_send(I2C_HandleTypeDef *device, const uint8_t *msg, uint16_t len
 	HAL_I2C_StateTypeDef state;
 	HAL_StatusTypeDef ret;
 	while ((state = HAL_I2C_GetState(device)) != HAL_I2C_STATE_READY) HAL_Delay(1);
-	while((ret = HAL_I2C_Master_Transmit_IT(device, address, msg, len)) != HAL_OK)
+	while((ret = HAL_I2C_Master_Transmit_DMA(device, address, msg, len)) != HAL_OK)
 	{
 		HAL_Delay(10);
 	}
@@ -182,7 +180,7 @@ void serial_i2c_receive(I2C_HandleTypeDef *device, uint8_t *buffer, uint16_t max
 	HAL_I2C_StateTypeDef state;
 	HAL_StatusTypeDef ret;
 	while ((state = HAL_I2C_GetState(device)) != HAL_I2C_STATE_READY) HAL_Delay(1);
-	while((ret = HAL_I2C_Slave_Receive_IT(device, buffer, max_len)) != HAL_OK)
+	while((ret = HAL_I2C_Slave_Receive_DMA(device, buffer, max_len)) != HAL_OK)
 	{
 		HAL_Delay(10);
 	}

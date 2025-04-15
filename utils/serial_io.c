@@ -7,74 +7,215 @@
 
 #include "serial_io.h"
 
-#define UART_TX_HANDLE (huart2)
-#define UART_RX_HANDLE (huart2)
+#define UART_TX_HANDLE (huart3)
+#define UART_RX_HANDLE (huart3)
+
+static const uint16_t i2c_slave_buff_size = 256;
 
 char uart_buff[512] = {0};
+
 uint8_t i2c_tx_buff[256] = {0};
 uint8_t i2c_rx_buff[256] = {0};
 
-volatile SerialChannelState_t i2c4_master_state = 0;
-volatile SerialChannelState_t i2c4_slave_state = 0;
-volatile SerialChannelState_t i2c2_master_state = 0;
-volatile SerialChannelState_t i2c2_slave_state = 0;
+uint8_t i2c_slave_buff[256] = {0};
+uint8_t i2c_slave_regs[256] = {0};
+uint8_t i2c_slave_direction = 0;
+uint16_t i2c_slave_rx_count = 0;
+uint16_t i2c_slave_tx_count = 0;
+uint16_t i2c_slave_tx_position = 0;
+
+I2C_TypeDef *i2c_instances[4] = { I2C1, I2C2, 0, I2C4 };
+
+volatile SerialChannelState_t i2c_channel_master_states[4] = {0};
+volatile SerialChannelState_t i2c_channel_slave_states[4] = {0};
+
+static void process_i2c_rx(I2C_HandleTypeDef *hi2c)
+{
+	int start_reg = i2c_slave_buff[0];
+	int num_regs = i2c_slave_rx_count - 1;
+
+	int end_reg = start_reg + num_regs - 1;
+
+	if (end_reg > 255)
+	{
+		Error_Handler();
+	}
+
+	for (int idx = 0; idx < num_regs; idx++)
+	{
+		i2c_slave_regs[start_reg + idx] = i2c_slave_buff[idx+1];
+	}
+
+	bzero(i2c_slave_buff+i2c_slave_rx_count, sizeof(i2c_slave_buff)-i2c_slave_rx_count);
+	i2c_slave_rx_count = 0;
+
+	for (int i = 0; i < 4; i++)
+	{
+		if (hi2c->Instance == i2c_instances[i])
+		{
+			i2c_channel_slave_states[i] = SCSTATE_RECEIVED;
+			break;
+		}
+	}
+}
+
+static void process_i2c_tx(I2C_HandleTypeDef *hi2c)
+{
+	i2c_slave_tx_count = 0;
+
+	for (int i = 0; i < 4; i++)
+	{
+		if (hi2c->Instance == i2c_instances[i])
+		{
+			i2c_channel_slave_states[i] = SCSTATE_SENT;
+			break;
+		}
+	}
+}
 
 void HAL_I2C_MasterTxCpltCallback (I2C_HandleTypeDef * hi2c)
 {
-	if (hi2c->Instance == I2C4)
+	for (int i = 0; i < 4; i++)
 	{
-		i2c4_master_state = SCSTATE_SENT;
-	}
-	else
-	{
-		i2c2_master_state = SCSTATE_SENT;
+		if (hi2c->Instance == i2c_instances[i])
+		{
+			i2c_channel_master_states[i] = SCSTATE_SENT;
+			break;
+		}
 	}
 }
 
 void HAL_I2C_MasterRxCpltCallback (I2C_HandleTypeDef * hi2c)
 {
-	if (hi2c->Instance == I2C4)
+	for (int i = 0; i < 4; i++)
 	{
-		i2c4_master_state = SCSTATE_RECEIVED;
-	}
-	else
-	{
-		i2c2_master_state = SCSTATE_RECEIVED;
+		if (hi2c->Instance == i2c_instances[i])
+		{
+			i2c_channel_master_states[i] = SCSTATE_RECEIVED;
+			break;
+		}
 	}
 }
 
 void HAL_I2C_SlaveTxCpltCallback (I2C_HandleTypeDef * hi2c)
 {
-	if (hi2c->Instance == I2C4)
+	i2c_slave_tx_count++;
+
+	if (i2c_slave_tx_count < i2c_slave_buff_size)
 	{
-		i2c4_slave_state = SCSTATE_SENT;
+		if (i2c_slave_tx_count == i2c_slave_buff_size - 1)
+		{
+			HAL_I2C_Slave_Seq_Transmit_IT(hi2c, i2c_slave_regs+i2c_slave_tx_position+i2c_slave_tx_count, 1, I2C_LAST_FRAME);
+		}
+		else
+		{
+			HAL_I2C_Slave_Seq_Transmit_IT(hi2c, i2c_slave_regs+i2c_slave_tx_position+i2c_slave_tx_count, 1, I2C_NEXT_FRAME);
+		}
 	}
-	else
+	else if (i2c_slave_tx_count == i2c_slave_buff_size)
 	{
-		i2c2_slave_state = SCSTATE_SENT;
+		process_i2c_tx(hi2c);
 	}
 }
 
 void HAL_I2C_SlaveRxCpltCallback (I2C_HandleTypeDef * hi2c)
 {
-	if (hi2c->Instance == I2C4)
-	{
-		i2c4_slave_state = SCSTATE_RECEIVED;
-	}
-	else
-	{
-		i2c2_slave_state = SCSTATE_RECEIVED;
-	}
+	i2c_slave_rx_count++;
 
+	if (i2c_slave_rx_count < i2c_slave_buff_size)
+	{
+		if (i2c_slave_rx_count == i2c_slave_buff_size - 1)
+		{
+			HAL_I2C_Slave_Seq_Receive_IT(hi2c, i2c_slave_buff+i2c_slave_rx_count, 1, I2C_LAST_FRAME);
+		}
+		else
+		{
+			HAL_I2C_Slave_Seq_Receive_IT(hi2c, i2c_slave_buff+i2c_slave_rx_count, 1, I2C_NEXT_FRAME);
+		}
+	}
+	else if (i2c_slave_rx_count == i2c_slave_buff_size)
+	{
+		process_i2c_rx(hi2c);
+	}
+}
+
+void HAL_I2C_MemTxCpltCallback(I2C_HandleTypeDef *hi2c)
+{
+	for (int i = 0; i < 4; i++)
+	{
+		if (hi2c->Instance == i2c_instances[i])
+		{
+			i2c_channel_slave_states[i] = SCSTATE_SENT;
+			break;
+		}
+	}
+}
+
+void HAL_I2C_MemRxCpltCallback(I2C_HandleTypeDef *hi2c)
+{
+	for (int i = 0; i < 4; i++)
+	{
+		if (hi2c->Instance == i2c_instances[i])
+		{
+			i2c_channel_slave_states[i] = SCSTATE_RECEIVED;
+			break;
+		}
+	}
 }
 
 void HAL_I2C_ListenCpltCallback(I2C_HandleTypeDef * hi2c)
 {
-	HAL_I2C_Slave_Receive_IT(hi2c, i2c_rx_buff, sizeof(i2c_rx_buff));
+	HAL_I2C_EnableListen_IT(hi2c);
+}
+
+extern void HAL_I2C_AddrCallback(I2C_HandleTypeDef *hi2c, uint8_t TransferDirection, uint16_t AddrMatchCode)
+{
+	i2c_slave_direction = TransferDirection;
+
+	if(i2c_slave_direction == I2C_DIRECTION_TRANSMIT)  // if the master wants to transmit the data
+	{
+		i2c_slave_buff[0] = 0;
+		i2c_slave_rx_count = 0;
+		HAL_I2C_Slave_Sequential_Receive_DMA(hi2c, i2c_slave_buff, 1, I2C_FIRST_FRAME);
+	}
+	else
+	{
+		i2c_slave_tx_position = i2c_slave_buff[0];
+		i2c_slave_buff[0] = 0;
+		i2c_slave_tx_count = 0;
+		HAL_I2C_Slave_Sequential_Transmit_DMA(hi2c, i2c_slave_regs+i2c_slave_tx_position, 1, I2C_FIRST_FRAME);
+	}
 }
 
 void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c)
 {
+	uint32_t error_code = HAL_I2C_GetError(hi2c);
+
+	if (error_code == 4)  // AF error
+	{
+		if (i2c_slave_direction == I2C_DIRECTION_TRANSMIT)
+		{
+			process_i2c_rx(hi2c);
+		}
+		else
+		{
+			process_i2c_tx(hi2c);
+		}
+	}
+	/* BERR Error commonly occurs during the Direction switch
+	* Here we the software reset bit is set by the HAL error handler
+	* Before resetting this bit, we make sure the I2C lines are released and the bus is free
+	* I am simply reinitializing the I2C to do so
+	*/
+	else if (errorcode == 1)  // BERR Error
+	{
+		HAL_I2C_DeInit(hi2c);
+		HAL_I2C_Init(hi2c);
+		bzero(i2c_slave_buff, i2c_slave_buff_size);
+		i2c_slave_rx_count = 0;
+	}
+
+	HAL_I2C_EnableListen_IT(hi2c);
 }
 
 void HAL_I2C_AbortCpltCallback(I2C_HandleTypeDef *hi2c)
@@ -83,7 +224,6 @@ void HAL_I2C_AbortCpltCallback(I2C_HandleTypeDef *hi2c)
 
 static void serial_backspace_destructive(uint16_t count)
 {
-
 	for (uint16_t idx = 0; idx < count; idx++)
 	{
 		HAL_UART_Transmit(&UART_TX_HANDLE, (uint8_t *)"\b \b", 3, 0xFFFF);

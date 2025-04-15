@@ -20,22 +20,22 @@ typedef enum SerialChannelState
 	SCSTATE_NONE = 0,
 	SCSTATE_SENT = 1,
 	SCSTATE_RECEIVED = 2,
-	SCSTATE_ACKNOWLEDGED = 3,
 } SerialChannelState_t;
 
 extern UART_HandleTypeDef huart2;
 extern UART_HandleTypeDef huart3;
+extern I2C_HandleTypeDef hi2c1;
 extern I2C_HandleTypeDef hi2c2;
 extern I2C_HandleTypeDef hi2c4;
 
 extern char uart_buff[512];
 extern uint8_t i2c_tx_buff[256];
 extern uint8_t i2c_rx_buff[256];
+extern uint8_t i2c_slave_buff[256];
+extern uint8_t i2c_slave_regs[256];
 
-extern volatile SerialChannelState_t i2c4_master_state;
-extern volatile SerialChannelState_t i2c4_slave_state;
-extern volatile SerialChannelState_t i2c2_master_state;
-extern volatile SerialChannelState_t i2c2_slave_state;
+extern volatile SerialChannelState_t i2c_channel_master_states[4];
+extern volatile SerialChannelState_t i2c_channel_slave_states[4];
 
 void serial_print(const char *msg, uint16_t len);
 void serial_print_line(const char *msg, uint16_t len);

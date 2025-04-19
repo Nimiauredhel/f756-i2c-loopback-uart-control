@@ -19,7 +19,7 @@ uint8_t i2c_rx_buff[256] = {0};
 
 uint8_t i2c_slave_buff[256] = {0};
 uint8_t i2c_slave_regs[256] = {0};
-uint8_t i2c_slave_direction = 0;
+volatile uint8_t i2c_slave_direction = 0;
 uint16_t i2c_slave_rx_count = 0;
 uint16_t i2c_slave_tx_count = 0;
 uint16_t i2c_slave_tx_position = 0;
@@ -207,7 +207,7 @@ void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c)
 	* Before resetting this bit, we make sure the I2C lines are released and the bus is free
 	* I am simply reinitializing the I2C to do so
 	*/
-	else if (errorcode == 1)  // BERR Error
+	else if (error_code == 1)  // BERR Error
 	{
 		HAL_I2C_DeInit(hi2c);
 		HAL_I2C_Init(hi2c);
@@ -232,7 +232,14 @@ static void serial_backspace_destructive(uint16_t count)
 
 static void serial_newline(void)
 {
-	HAL_UART_Transmit(&UART_TX_HANDLE, (uint8_t *)"\n\r", 2, 0xFFFF);
+	HAL_UART_Transmit(&UART_TX_HANDLE, (uint8_t *)"\r\n", 2, 0xFFFF);
+}
+
+static void serial_upline(uint16_t line_length)
+{
+	char buff[16] = {0};
+	sprintf(buff, "\r\e[%uC%c \b", line_length-1, 0x8D);
+	serial_print(buff, 0);
 }
 
 void serial_print(const char *msg, uint16_t len)
@@ -256,7 +263,6 @@ void serial_print_char(const char c)
 uint16_t serial_scan(char *buffer, const uint16_t max_len)
 {
 	static const uint8_t echo_line_length = 128;
-	char util_buff[16] = {0};
 	uint8_t inchar = 0;
 	uint16_t input_idx = 0;
 
@@ -282,13 +288,7 @@ uint16_t serial_scan(char *buffer, const uint16_t max_len)
 					if (input_idx == echo_line_length - 1
 						|| input_idx % echo_line_length == echo_line_length - 1)
 					{
-						sprintf(util_buff, "\r\e[%uC%c \b", echo_line_length-1, 0x8D);
-						serial_print(util_buff, 0);
-						/*
-						serial_backspace_destructive(1);
-						serial_print("\e[8C", 0);
-						serial_print_char(0x8D);
-						*/
+						serial_upline(echo_line_length);
 					}
 				}
 				break;
@@ -307,8 +307,7 @@ uint16_t serial_scan(char *buffer, const uint16_t max_len)
 					if (input_idx >= echo_line_length
 						&& input_idx % echo_line_length == 0)
 					{
-						serial_print_char('\r');
-						serial_print_char('\n');
+						serial_newline();
 					}
 				}
 				HAL_Delay(1);

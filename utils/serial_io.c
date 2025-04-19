@@ -26,8 +26,8 @@ uint16_t i2c_slave_tx_position = 0;
 
 I2C_TypeDef *i2c_instances[4] = { I2C1, I2C2, 0, I2C4 };
 
-volatile SerialChannelState_t i2c_channel_master_states[4] = {0};
-volatile SerialChannelState_t i2c_channel_slave_states[4] = {0};
+SerialChannelState_t i2c_channel_master_states[4] = {0};
+SerialChannelState_t i2c_channel_slave_states[4] = {0};
 
 static void process_i2c_rx(I2C_HandleTypeDef *hi2c)
 {

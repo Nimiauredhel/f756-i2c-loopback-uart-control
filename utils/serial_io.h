@@ -34,8 +34,8 @@ extern uint8_t i2c_rx_buff[256];
 extern uint8_t i2c_slave_buff[256];
 extern uint8_t i2c_slave_regs[256];
 
-extern volatile SerialChannelState_t i2c_channel_master_states[4];
-extern volatile SerialChannelState_t i2c_channel_slave_states[4];
+extern SerialChannelState_t i2c_channel_master_states[4];
+extern SerialChannelState_t i2c_channel_slave_states[4];
 
 void serial_print(const char *msg, uint16_t len);
 void serial_print_line(const char *msg, uint16_t len);

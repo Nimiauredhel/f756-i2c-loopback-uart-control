@@ -43,6 +43,6 @@ void serial_print_char(const char c);
 uint16_t serial_scan(char *buffer, const uint16_t max_len);
 
 void serial_i2c_send(I2C_HandleTypeDef *device, uint8_t *msg, uint16_t len, uint16_t address);
-void serial_i2c_receive(I2C_HandleTypeDef *device, uint8_t *buffer, uint16_t max_len);
+//void serial_i2c_receive(I2C_HandleTypeDef *device, uint8_t *buffer, uint16_t max_len);
 
 #endif /* SERIAL_IO_H_ */

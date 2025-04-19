@@ -123,19 +123,89 @@ static void slave_test_routine(void)
 
 static void event_queue_test_routine(void)
 {
+	static const uint8_t queue_cap = 255;
+	static const uint32_t timeout_ms = 30000;
+
+	uint32_t idle_counter = 0;
+	uint32_t last_recorded_press_num = user_btn_press_count;
+
+	uint32_t queue_length = 0;
+
+	bzero(uart_buff, sizeof(uart_buff));
+	bzero(i2c_slave_regs, sizeof(i2c_slave_regs));
+
+	// reg index 0 signifies the queue length;
+	// following indices are the queue entries.
+	i2c_slave_regs[0] = 0;
+
+	HAL_I2C_EnableListen_IT(&hi2c1);
+
+	while(idle_counter < timeout_ms)
+	{
+		if (i2c_slave_regs[0] != queue_length)
+		{
+			queue_length = 0;
+			idle_counter = 0;
+			serial_print_line("Detected regs have been read by master - queue reset.", 0);
+		}
+
+		if (user_btn_press_count > last_recorded_press_num)
+		{
+			last_recorded_press_num = user_btn_press_count;
+			queue_length++;
+
+			if (queue_length >= queue_cap)
+			{
+				// shrug
+			}
+			else
+			{
+				i2c_slave_regs[queue_length] = last_recorded_press_num;
+				i2c_slave_regs[0] = queue_length;
+			}
+
+			idle_counter = 0;
+
+			sprintf(uart_buff, "Recorded button press #%lu in queue index #%u.", last_recorded_press_num, queue_length);
+			serial_print_line(uart_buff, strlen(uart_buff));
+		}
+
+		switch(idle_counter)
+		{
+		case 10000:
+			serial_print_line(">10 seconds idle...", 0);
+			break;
+		case 15000:
+			serial_print_line(">15 seconds idle...", 0);
+			break;
+		case 20000:
+			serial_print_line(">20 seconds idle...", 0);
+			break;
+		case 25000:
+			serial_print_line(">25 seconds idle...", 0);
+			break;
+		}
+
+		HAL_Delay(1);
+		idle_counter++;
+	}
+
+	serial_print_line("Idle timeout exceeded, returning to selection menu.", 0);
+	HAL_I2C_DisableListen_IT(&hi2c1);
 }
 
 void interface_loop(void)
 {
-	HAL_Delay(100);
+	HAL_Delay(1);
 
-	serial_print_line("Please select a test routine from the list:", 0);
+	serial_print_line("--\r\nPlease select a test routine from the list:", 0);
 	serial_print_line("1: I2C Loopback", 0);
 	serial_print_line("2: I2C Generic Slave Device", 0);
 	serial_print_line("3: I2C Slave with Event Queue", 0);
 
 	bzero(uart_buff, sizeof(uart_buff));
 	serial_scan(uart_buff, 1);
+	serial_print_line("--", 2);
 
 	switch(uart_buff[0])
 	{

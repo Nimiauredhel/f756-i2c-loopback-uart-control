@@ -331,7 +331,7 @@ void serial_i2c_send(I2C_HandleTypeDef *device, uint8_t *msg, uint16_t len, uint
 	serial_print_line(buff, strlen(buff));
 }
 
-void serial_i2c_receive(I2C_HandleTypeDef *device, uint8_t *buffer, uint16_t max_len)
+/*void serial_i2c_receive(I2C_HandleTypeDef *device, uint8_t *buffer, uint16_t max_len)
 {
 	char buff[64];
 	HAL_I2C_StateTypeDef state;
@@ -343,4 +343,4 @@ void serial_i2c_receive(I2C_HandleTypeDef *device, uint8_t *buffer, uint16_t max
 	}
 	sprintf(buff, "I2C Slave Receive IT result: %s", ret == 0 ? "good" : "bad");
 	serial_print_line(buff, strlen(buff));
-}
+}*/

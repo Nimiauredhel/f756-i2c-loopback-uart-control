@@ -14,6 +14,7 @@
 
 #include "main.h"
 #include "serial_io.h"
+#include "exti_util.h"
 
 void interface_loop(void);
 

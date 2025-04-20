@@ -105,11 +105,11 @@ void HAL_I2C_SlaveTxCpltCallback (I2C_HandleTypeDef * hi2c)
 	{
 		if (i2c_slave_tx_count == i2c_slave_buff_size - 1)
 		{
-			HAL_I2C_Slave_Seq_Transmit_IT(hi2c, i2c_slave_regs+i2c_slave_tx_position+i2c_slave_tx_count, 1, I2C_LAST_FRAME);
+			HAL_I2C_Slave_Seq_Transmit_DMA(hi2c, i2c_slave_regs+i2c_slave_tx_position+i2c_slave_tx_count, 1, I2C_LAST_FRAME);
 		}
 		else
 		{
-			HAL_I2C_Slave_Seq_Transmit_IT(hi2c, i2c_slave_regs+i2c_slave_tx_position+i2c_slave_tx_count, 1, I2C_NEXT_FRAME);
+			HAL_I2C_Slave_Seq_Transmit_DMA(hi2c, i2c_slave_regs+i2c_slave_tx_position+i2c_slave_tx_count, 1, I2C_NEXT_FRAME);
 		}
 	}
 	else if (i2c_slave_tx_count == i2c_slave_buff_size)
@@ -126,11 +126,11 @@ void HAL_I2C_SlaveRxCpltCallback (I2C_HandleTypeDef * hi2c)
 	{
 		if (i2c_slave_rx_count == i2c_slave_buff_size - 1)
 		{
-			HAL_I2C_Slave_Seq_Receive_IT(hi2c, i2c_slave_buff+i2c_slave_rx_count, 1, I2C_LAST_FRAME);
+			HAL_I2C_Slave_Seq_Receive_DMA(hi2c, i2c_slave_buff+i2c_slave_rx_count, 1, I2C_LAST_FRAME);
 		}
 		else
 		{
-			HAL_I2C_Slave_Seq_Receive_IT(hi2c, i2c_slave_buff+i2c_slave_rx_count, 1, I2C_NEXT_FRAME);
+			HAL_I2C_Slave_Seq_Receive_DMA(hi2c, i2c_slave_buff+i2c_slave_rx_count, 1, I2C_NEXT_FRAME);
 		}
 	}
 	else if (i2c_slave_rx_count == i2c_slave_buff_size)
@@ -327,7 +327,7 @@ void serial_i2c_send(I2C_HandleTypeDef *device, uint8_t *msg, uint16_t len, uint
 	{
 		HAL_Delay(10);
 	}
-	sprintf(buff, "I2C Master Transmit IT result: %s", ret == 0 ? "good" : "bad");
+	sprintf(buff, "I2C Master Transmit DMA result: %s", ret == 0 ? "good" : "bad");
 	serial_print_line(buff, strlen(buff));
 }
 
@@ -341,6 +341,6 @@ void serial_i2c_send(I2C_HandleTypeDef *device, uint8_t *msg, uint16_t len, uint
 	{
 		HAL_Delay(10);
 	}
-	sprintf(buff, "I2C Slave Receive IT result: %s", ret == 0 ? "good" : "bad");
+	sprintf(buff, "I2C Slave Receive DMA result: %s", ret == 0 ? "good" : "bad");
 	serial_print_line(buff, strlen(buff));
 }*/
